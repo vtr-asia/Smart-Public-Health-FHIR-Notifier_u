@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>FHIR App Launching...</title>
+    <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f8f9fa;
+            margin: 0;
+        }
+        .loader-container { text-align: center; }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border-left-color: #2563eb;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        p { color: #4b5563; font-size: 15px; font-weight: 500; }
+        .sub-text { color: #9ca3af; font-size: 12px; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="loader-container">
+        <div class="spinner"></div>
+        <p>正在啟動智慧公衛通報系統...</p>
+        <p class="sub-text">正在與 EHR 進行安全驗證 (第二階段測試環境)</p>
+    </div>
+
+    <script>
+        /**
+         * SMART on FHIR 啟動配置
+         * 使用第二階段測試憑證
+         */
+        FHIR.oauth2.authorize({
+            // 測試環境專用 Client ID
+            clientId: "cc344727-6f90-496c-94fd-c7829aa9a51d", 
+            
+            // 請求權限範圍
+            // launch: 取得當前病患開啟上下文
+            // patient/*.read: 允許讀取該病患的所有資源 (如 Condition, Observation)
+            // openid fhirUser: 驗證醫護人員身分
+            // online_access: 確保在登入期間保持存取權限
+            scope: "launch patient/*.read user/Patient.read openid fhirUser online_access",
+            
+            // 授權成功後的跳轉目標 (需與醫院端註冊的 Redirect URI 一致)
+            redirectUri: "index.html",
+            
+            // 注意：關於 client_secret
+            // 在純前端 (Public Client) 環境下，fhirclient 庫通常不直接在 authorize 階段帶入 secret。
+            // 若您的測試 Server 要求必須進行密鑰驗證 (Confidential Client)，
+            // 該動作通常發生在 index.html 換取 Token 的後端交換過程中。
+            
+            completeInTarget: true
+        });
+    </script>
+</body>
+</html>

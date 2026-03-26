@@ -1,171 +1,188 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智慧公衛 FHIR 自動通報系統</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        @keyframes pulse-orange {
-            0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
-        }
-        .pulse-card { animation: pulse-orange 2s infinite; }
-        .fade-out { opacity: 0; transition: opacity 0.5s ease; pointer-events: none; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🚀 智慧公衛傳染病自動化通報系統</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fhirclient@2.6.3/build/fhir-client.js"></script>
+  <style>
+    :root {
+      --primary: #0056b3; --primary-dark: #003d80; --accent: #e63946;
+      --success: #2d6a4f; --warning: #ffb703; --danger: #c1121f;
+      --bg: #f8f9fa; --card: #ffffff; --text: #212529; --border: #dee2e6; --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg); color: var(--text); }
+    
+    .header { 
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark)); 
+      color: white; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .badge { background: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+
+    .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 350px; gap: 25px; }
+    
+    .card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); margin-bottom: 25px; }
+    .card-title { font-size: 18px; font-weight: 700; margin-bottom: 18px; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+
+    /* 病人資訊條 */
+    .patient-bar { display: flex; gap: 20px; align-items: center; background: #e9ecef; padding: 15px 25px; border-radius: 50px; margin-bottom: 30px; }
+    .avatar { width: 50px; height: 50px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+    
+    /* 查核清單樣式 */
+    .check-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
+    .check-label { font-weight: 500; color: #495057; }
+    .check-value { color: #000; font-weight: 700; }
+
+    /* 通報按鈕 */
+    .btn-report { 
+      width: 100%; padding: 15px; border: none; border-radius: var(--radius); 
+      background: var(--accent); color: white; font-size: 18px; font-weight: 700; 
+      cursor: pointer; transition: 0.3s; margin-top: 15px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .btn-report:hover { background: #b11221; transform: translateY(-2px); }
+    .btn-report:disabled { background: #adb5bd; cursor: not-allowed; }
+
+    .status-tag { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    .tag-critical { background: #fff0f0; color: var(--danger); border: 1px solid var(--danger); }
+  </style>
 </head>
-<body class="bg-gray-50 font-sans text-gray-900 mb-20 md:mb-0">
+<body>
 
-    <nav class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-        <div class="flex items-center space-x-3">
-            <div class="bg-blue-600 p-2 rounded-lg">
-                <i class="fas fa-microscope text-white text-xl"></i>
-            </div>
-            <div>
-                <h1 class="font-bold text-lg">FHIR Notifier</h1>
-                <p class="text-xs text-gray-500">公共衛生自動通報系統 v1.0</p>
-            </div>
+  <header class="header">
+    <div>
+      <h1 style="font-size: 24px;">智慧公衛傳染病自動化通報系統</h1>
+      <p style="font-size: 13px; opacity: 0.8;">SMART on FHIR 第二階段驗證：Provider Launch 模式</p>
+    </div>
+    <div class="badge" id="authStatus">驗證中...</div>
+  </header>
+
+  <div class="container">
+    <main>
+      <div class="patient-bar">
+        <div class="avatar">👤</div>
+        <div style="flex-grow: 1;">
+          <span id="pName" style="font-size: 20px; font-weight: 700;">載入中...</span>
+          <span id="pInfo" style="margin-left: 15px; color: #666;">取得資料中...</span>
         </div>
-        <div class="flex items-center space-x-4">
-            <div class="text-right hidden sm:block">
-                <p class="text-sm font-medium">王小明 醫師</p>
-                <p id="connection-status" class="text-xs text-green-500 flex items-center justify-end">
-                    <span class="w-2 h-2 bg-green-500 rounded-full mr-1"></span> FHIR Server Connected
-                </p>
-            </div>
-            <img src="https://ui-avatars.com/api/?name=Dr.Wang&background=0D8ABC&color=fff" class="w-10 h-10 rounded-full border border-gray-200">
+        <div id="encounterStatus" class="status-tag tag-critical">偵測就醫紀錄中...</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🚨 法定傳染病自動偵測 (Condition & Obs)</div>
+        <div id="detectionList">
+          <p style="color: #666;">正在掃描當前診斷與實驗室報告...</p>
         </div>
-    </nav>
+      </div>
 
-    <main class="max-w-5xl mx-auto p-6">
-        
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <p class="text-sm text-gray-500 font-medium font-bold">待確認個案</p>
-                <h3 id="count-pending" class="text-3xl font-bold text-orange-500 mt-1">01</h3>
-                <p class="text-xs text-gray-400 mt-2 italic">來自 HIS 診斷勾稽</p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <p class="text-sm text-gray-500 font-medium font-bold">傳送中</p>
-                <h3 id="count-sync" class="text-3xl font-bold text-blue-500 mt-1">00</h3>
-                <p class="text-xs text-gray-400 mt-2 italic">Transaction Bundle</p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <p class="text-sm text-gray-500 font-medium font-bold">今日已通報</p>
-                <h3 id="count-done" class="text-3xl font-bold text-green-500 mt-1">12</h3>
-                <p class="text-xs text-gray-400 mt-2 italic">已收訖 201 Created</p>
-            </div>
-        </div>
-
-        <section id="detection-section" class="mb-10">
-            <h2 class="text-lg font-bold mb-4 flex items-center">
-                <i class="fas fa-wand-magic-sparkles text-blue-600 mr-2"></i> 智慧偵測提示 (Smart Detection)
-            </h2>
-            <div id="alert-card" class="bg-white border-2 border-orange-400 rounded-2xl p-6 pulse-card">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
-                    <div class="flex items-start space-x-4">
-                        <div class="bg-orange-100 text-orange-600 p-3 rounded-full">
-                            <i class="fas fa-virus text-2xl"></i>
-                        </div>
-                        <div>
-                            <span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">Detection Alert</span>
-                            <h4 class="text-xl font-bold mt-1 text-gray-800">張三 (A123***789)</h4>
-                            <p class="text-sm text-gray-600 mt-1">
-                                疑似疾病: <span class="font-bold text-orange-600">登革熱 (ICD-10 A90)</span><br>
-                                檢驗參考: <span class="text-blue-600 underline">NS1 Ag Positive</span>
-                            </p>
-                        </div>
-                    </div>
-                    <button id="submit-btn" onclick="handleTransaction()" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center">
-                        <i class="fas fa-paper-plane mr-2"></i> 快速核對並通報
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <section>
-            <div class="flex justify-between items-end mb-4">
-                <h2 class="text-lg font-bold text-gray-700">最近通報紀錄 (Recent Reports)</h2>
-                <button class="text-sm text-blue-600 font-medium hover:text-blue-800">查看歷史日誌</button>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <table class="w-full text-left">
-                    <thead class="bg-gray-50 text-gray-400 text-[11px] uppercase tracking-widest font-bold">
-                        <tr>
-                            <th class="px-6 py-4">Patient / ID</th>
-                            <th class="px-6 py-4">Condition</th>
-                            <th class="px-6 py-4">Time</th>
-                            <th class="px-6 py-4">FHIR Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-body" class="divide-y divide-gray-100">
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 font-medium">李*明 (B120***456)</td>
-                            <td class="px-6 py-4 text-sm font-semibold text-gray-600">結核病 (A15.0)</td>
-                            <td class="px-6 py-4 text-xs text-gray-400">2026-01-28 10:15</td>
-                            <td class="px-6 py-4"><span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded-full font-bold">SUCCESS (201)</span></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+      <div class="card">
+        <div class="card-title">📝 預填通報單內容明細</div>
+        <div class="check-item"><span class="check-label">通報病名</span><span class="check-value" id="reportDisease">—</span></div>
+        <div class="check-item"><span class="check-label">發病日期</span><span class="check-value" id="onsetDate">由臨床紀錄自動判定</span></div>
+        <div class="check-item"><span class="check-label">通報醫師</span><span class="check-value" id="docName">取得登入資訊中...</span></div>
+        <div class="check-item"><span class="check-label">醫療機構代碼</span><span class="check-value" id="orgId">讀取中...</span></div>
+      </div>
     </main>
 
-    <script>
-        // 模擬通報邏輯
-        async function handleTransaction() {
-            const btn = document.getElementById('submit-btn');
-            const card = document.getElementById('alert-card');
-            
-            // 1. UI 變更：載入狀態
-            btn.disabled = true;
-            btn.classList.add('opacity-70', 'cursor-not-allowed');
-            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> FHIR Bundle 傳輸中...';
+    <aside>
+      <div class="card" style="position: sticky; top: 20px;">
+        <div class="card-title">⚡ 快速通報操作</div>
+        <p style="font-size: 14px; color: #666; margin-bottom: 20px;">
+          系統已自動整合此診次的診斷與檢驗結果，請核對資料後送出。
+        </p>
+        <button class="btn-report" id="btnReport" disabled>
+          <span>📤</span> 一鍵自動通報
+        </button>
+        <p style="font-size: 12px; color: #999; text-align: center; margin-top: 15px;">
+          * 通報將直接同步至 CDC 測試沙盒
+        </p>
+      </div>
+    </aside>
+  </div>
 
-            // 模擬 API 延遲 (2秒)
-            await new Promise(resolve => setTimeout(resolve, 1500));
+  <script>
+    // 法定傳染病 ICD-10 範例對照表
+    const NOTIFIABLE_DISEASES = {
+      "A90": "登革熱 (Dengue Fever)",
+      "A91": "登革出血熱",
+      "B05": "麻疹 (Measles)",
+      "A01.0": "傷寒 (Typhoid Fever)"
+    };
 
-            // 2. 模擬後端回傳成功 (在此處你可以放實際的 fetch 程式碼)
-            const mockResponse = {
-                status: "201 Created",
-                id: "23b20951-69bb-4271-a01f-26051ea94e8b",
-                lastModified: new Date().toLocaleString()
-            };
+    async function startApp() {
+      try {
+        const client = await FHIR.oauth2.ready();
+        document.getElementById("authStatus").innerText = "已授權";
+        document.getElementById("authStatus").style.background = "#2d6a4f";
 
-            // 3. 處理成功流程
-            if(mockResponse.status === "201 Created") {
-                // 更新上方數據
-                document.getElementById('count-pending').innerText = '00';
-                document.getElementById('count-done').innerText = '13';
-                
-                // 動態增加一筆紀錄到表格
-                const newRow = `
-                    <tr class="bg-blue-50 animate-pulse">
-                        <td class="px-6 py-4 font-medium font-bold">張三 (A123***789)</td>
-                        <td class="px-6 py-4 text-sm font-semibold text-gray-600 font-bold text-blue-600">登革熱 (A90)</td>
-                        <td class="px-6 py-4 text-xs text-gray-400">${mockResponse.lastModified}</td>
-                        <td class="px-6 py-4"><span class="bg-green-500 text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-sm">NEW SUCCESS</span></td>
-                    </tr>`;
-                document.getElementById('history-body').insertAdjacentHTML('afterbegin', newRow);
+        // 同時獲取 Patient 與 Encounter 上下文 (Provider Launch 特色)
+        const pid = client.patient.id;
+        const eid = client.encounter.id;
 
-                // 移除通報卡片
-                card.classList.add('fade-out');
-                setTimeout(() => {
-                    document.getElementById('detection-section').innerHTML = `
-                        <div class="bg-green-50 border border-green-200 text-green-700 p-4 rounded-xl flex items-center">
-                            <i class="fas fa-check-circle mr-3 text-xl"></i>
-                            <div>
-                                <p class="font-bold">所有案件已通報完畢</p>
-                                <p class="text-sm text-green-600">系統持續監控 HIS 資料庫中...</p>
-                            </div>
-                        </div>`;
-                }, 500);
+        // 批次讀取所需資料
+        const [patient, encounter, conditions] = await Promise.all([
+          client.request(`Patient/${pid}`),
+          eid ? client.request(`Encounter/${eid}`) : Promise.resolve(null),
+          client.request(`Condition?patient=${pid}&_sort=-date`)
+        ]);
 
-                console.log("FHIR Response Success:", mockResponse);
-            }
+        // 1. 渲染病人資訊
+        const name = patient.name ? patient.name[0].text || patient.name[0].family : "未知";
+        document.getElementById("pName").innerText = name;
+        document.getElementById("pInfo").innerText = `${patient.gender === 'male'?'男':'女'} | ${patient.birthDate} | ID: ${pid}`;
+
+        // 2. 顯示 Encounter 狀態
+        if (eid) {
+          document.getElementById("encounterStatus").innerText = `診次 ID: ${eid} (已連結)`;
+          document.getElementById("encounterStatus").className = "status-tag";
+          document.getElementById("encounterStatus").style.background = "#d1e7dd";
+        } else {
+          document.getElementById("encounterStatus").innerText = "非特定診次開啟";
         }
-    </script>
+
+        // 3. 自動偵測傳染病診斷
+        const detectionArea = document.getElementById("detectionList");
+        let foundDisease = false;
+        
+        if (conditions.entry) {
+          detectionArea.innerHTML = "";
+          conditions.entry.forEach(item => {
+            const code = item.resource.code.coding[0].code;
+            const display = item.resource.code.coding[0].display || item.resource.code.text;
+            
+            if (NOTIFIABLE_DISEASES[code]) {
+              foundDisease = true;
+              document.getElementById("reportDisease").innerText = NOTIFIABLE_DISEASES[code];
+              document.getElementById("btnReport").disabled = false;
+              
+              detectionArea.innerHTML += `
+                <div style="padding:15px; background:#fff5f5; border-left:5px solid var(--danger); margin-bottom:10px;">
+                  <b style="color:var(--danger);">⚠️ 偵測到法定傳染病：${NOTIFIABLE_DISEASES[code]}</b><br>
+                  <small>診斷代碼：${code} | 紀錄日期：${item.resource.recordedDate || '不詳'}</small>
+                </div>`;
+            }
+          });
+        }
+        
+        if (!foundDisease) {
+          detectionArea.innerHTML = "<p>✅ 目前查無符合法定傳染病之診斷代碼。</p>";
+        }
+
+        // 模擬通報動作
+        document.getElementById("btnReport").onclick = () => {
+          alert(`通報成功！\n病患：${name}\n通報病名：${document.getElementById("reportDisease").innerText}\n已傳輸至公衛系統。`);
+        };
+
+      } catch (err) {
+        console.error("SMART App Error:", err);
+        document.getElementById("authStatus").innerText = "授權失敗";
+      }
+    }
+
+    startApp();
+  </script>
 </body>
 </html>

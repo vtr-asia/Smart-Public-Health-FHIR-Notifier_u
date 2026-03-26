@@ -1,77 +1,91 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>台灣血脂 CDS - 啟動中...</title>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
-  
-  <!-- 鎖定 fhirclient 穩定版本 -->
-  <script src="https://cdn.jsdelivr.net/npm/fhirclient@2.6.3/build/fhir-client.js"></script>
-  
-  <style>
-    :root {
-      --primary: #0066cc;
-      --bg-dark: #0a192f;
-      --text-light: #e6f1ff;
-    }
-    body {
-      font-family: 'Noto Sans TC', sans-serif;
-      background: var(--bg-dark);
-      color: var(--text-light);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      text-align: center;
-    }
-    .loader-container { padding: 20px; }
-    .loader {
-      border: 4px solid rgba(255, 255, 255, 0.1);
-      border-left-color: var(--primary);
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 20px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+    <meta charset="UTF-8">
+    <title>FHIR App Launching...</title>
+    <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f8f9fa;
+            margin: 0;
+        }
+        .loader-container { text-align: center; }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border-left-color: #2563eb;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        p { color: #4b5563; font-size: 15px; font-weight: 500; }
+        .sub-text { color: #9ca3af; font-size: 12px; margin-top: 8px; }
+        .error-box {
+            display: none;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+            color: #991b1b;
+            font-size: 13px;
+            max-width: 400px;
+            text-align: left;
+        }
+    </style>
 </head>
 <body>
+    <div class="loader-container">
+        <div class="spinner"></div>
+        <p>正在啟動智慧公衛通報系統...</p>
+        <p class="sub-text">正在與 EHR 進行安全驗證 (SMART Health IT Sandbox)</p>
+        <div class="error-box" id="errorBox"></div>
+    </div>
 
-  <div class="loader-container">
-    <div class="loader"></div>
-    <h2>正在連線至 FHIR 醫療資訊系統...</h2>
-    <p>請稍候，我們正在準備您的臨床決策輔助工具</p>
-  </div>
+    <script>
+        /**
+         * SMART on FHIR — Provider EHR Launch 模式
+         * 目標環境：https://launch.smarthealthit.org
+         *
+         * 測試步驟：
+         * 1. 前往 https://launch.smarthealthit.org
+         * 2. Launch Type → Provider EHR Launch
+         * 3. 勾選「Simulate launch within the EHR user interface」
+         * 4. 選擇 Patient 與 Provider（必選，否則 encounter context 為空）
+         * 5. 在「App Launch URL」填入本 launch.html 的公開 URL
+         * 6. 點擊「Launch」
+         *
+         * 注意：SMART Health IT Sandbox 為 Public Client，不需 client_secret
+         */
+        FHIR.oauth2.authorize({
+            // Sandbox 不驗證 clientId，保留原值或任意字串均可
+            clientId: "cc344727-6f90-496c-94fd-c7829aa9a51d",
 
-  <script>
-    /**
-     * 最終高風險修正版（符合你的要求）
-     * - 已移除 clientSecret（前端不再暴露機密金鑰）
-     * - 使用安全 PKCE 模式
-     * - 縮小 scope 至血脂 CDS 所需
-     * - **完全移除畫面上的錯誤提示**（只在 console 記錄）
-     */
-    FHIR.oauth2.authorize({
-      clientId: "cc344727-6f90-496c-94fd-c7829aa9a51d",
+            // Provider Launch 必要 scope：
+            // launch          — 取得 EHR 傳入的 launch token
+            // patient/*.read  — 讀取該病患所有資源
+            // openid fhirUser — 取得登入醫護人員身分
+            // online_access   — session 期間持續存取
+            scope: "launch patient/*.read openid fhirUser online_access",
 
-      // clientSecret 已完全移除
+            // 授權成功後導向 index.html（需與 Sandbox 填寫的 Redirect URI 一致）
+            redirectUri: "index.html",
 
-      scope: "launch openid fhirUser patient/Patient.read patient/Observation.read patient/MedicationRequest.read patient/Condition.read",
+            completeInTarget: true
 
-      redirectUri: "index.html",
-
-      // 安全 PKCE 設定
-      pkceMode: "ifSupported"
-
-    }).catch(err => {
-      // 只記錄錯誤，不在畫面上顯示任何訊息
-      console.error("FHIR 授權失敗:", err);
-      // 這裡不做任何 DOM 操作，讓 loading 畫面保持不變
-    });
-  </script>
+        }).catch(function(err) {
+            // 顯示授權失敗原因（協助除錯）
+            var box = document.getElementById("errorBox");
+            box.style.display = "block";
+            box.innerHTML = "<strong>授權失敗</strong><br>" + (err.message || JSON.stringify(err));
+        });
+    </script>
 </body>
 </html>
